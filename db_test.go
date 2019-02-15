@@ -26,6 +26,7 @@ func init() {
 }
 
 func init_db(db *Connection) {
+	db.AffectingStatement(`CREATE DATABASE IF NOT EXISTS torm_test`)
 	db.AffectingStatement(`DROP TABLE IF EXISTS users;`)
 	db.AffectingStatement(`
 CREATE TABLE users (
@@ -174,17 +175,17 @@ func TestTableAggregates(t *testing.T) {
 	t.Log(count)
 }
 
-func TestModelSelect(test *testing.T) {
+func TestModelSelect(t *testing.T) {
 	var users []User
 
 	err := DB.Model(User{}).Get(&users)
 
 	if err != nil {
-		test.Error(err)
+		t.Error(err)
 	}
 }
 
-func TestModelInsert(test *testing.T) {
+func TestModelInsert(t *testing.T) {
 
 	var data []map[string]interface{}
 
@@ -202,13 +203,13 @@ func TestModelInsert(test *testing.T) {
 
 	if err != nil {
 		panic(err)
-		test.Error(err)
+		t.Error(err)
 	}
 
-	test.Log(id, affected, err)
+	t.Log(id, affected, err)
 }
 
-func TestModelUpdate(test *testing.T) {
+func TestModelUpdate(t *testing.T) {
 
 	data := map[string]interface{}{
 		"gender": "F",
@@ -218,7 +219,7 @@ func TestModelUpdate(test *testing.T) {
 	_, err := DB.Model(User{}).Where("name", "Martine").Update(data)
 
 	if err != nil {
-		test.Error(err)
+		t.Error(err)
 	}
 }
 
