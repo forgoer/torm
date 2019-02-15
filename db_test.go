@@ -13,20 +13,33 @@ import (
 var DB *Connection
 
 func init() {
-	config := Config{
-		Driver: "mysql",
-		Dsn:    "root:@tcp(127.0.0.1:3306)/torm_test?charset=utf8&parseTime=true",
-	}
-	conn, err := Open(config)
+	DB = initDb()
+}
+
+func initDb() *Connection {
+	dsn := "root:@tcp(127.0.0.1:3306)/"
+	driver := "mysql"
+	db, err := Open(Config{
+		Driver: driver,
+		Dsn:    dsn + "?charset=utf8&parseTime=true",
+	})
 	if err != nil {
 		panic(err)
 	}
-	init_db(conn)
-	DB = conn
-}
+	_, _, err = db.AffectingStatement(`CREATE DATABASE IF NOT EXISTS torm_test`)
 
-func init_db(db *Connection) {
-	db.AffectingStatement(`CREATE DATABASE IF NOT EXISTS torm_test`)
+	if err != nil {
+		panic(err)
+	}
+
+	db, err = Open(Config{
+		Driver: driver,
+		Dsn:    dsn + "torm_test?charset=utf8&parseTime=true",
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	db.AffectingStatement(`DROP TABLE IF EXISTS users;`)
 	db.AffectingStatement(`
 CREATE TABLE users (
@@ -60,6 +73,8 @@ INSERT INTO users VALUES ('Jenny', 'M', 'California', '2010-02-11', '8.5000', '2
  ('Martinez', 'M', '', '2000-02-11', '0.0000', '2019-02-11 15:01:31', '2019-02-11 15:00:51'),
  ('Martin', 'M', '', '1996-10-01', '0.0000', '2019-02-11 15:01:31', '2019-02-11 15:01:31');
 `)
+
+	return db
 }
 
 type User struct {
