@@ -67,7 +67,7 @@ func (u *User) TableName() string {
 }
 
 var users []User
-conn.Table("users").
+db.Table("users").
 	Where("gender", "M").
 	Where("name", "like", "%a%").
 	WhereColumn("created_at", "!=", "updated_at").
