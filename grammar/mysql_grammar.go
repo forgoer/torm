@@ -9,7 +9,7 @@ import (
 	"github.com/thinkoner/torm/query"
 )
 
-var selectComponents = [] string{
+var selectComponents = []string{
 	"aggregate",
 	"columns",
 	"from",
@@ -37,7 +37,7 @@ func (g *MySqlGrammar) CompileSelect(query *query.Query) string {
 	original := query.Columns
 
 	if query.Columns == nil {
-		query.Columns = [] string{"*"}
+		query.Columns = []string{"*"}
 	}
 
 	// To compile the query, we'll spin through each component of the query and
@@ -197,8 +197,19 @@ func (g *MySqlGrammar) compileWheresToArray(query *query.Query) []string {
 		switch where.Type {
 		case "Basic":
 			w = where.Boolean + " " + g.whereBasic(query, where)
+		case "In":
+			w = where.Boolean + " " + g.whereIn(query, where)
+		case "NotIn":
+			w = where.Boolean + " " + g.whereNotIn(query, where)
+		case "Null":
+			w = where.Boolean + " " + g.whereNull(query, where)
+		case "NotNull":
+			w = where.Boolean + " " + g.whereNotNull(query, where)
+		case "Between":
+			w = where.Boolean + " " + g.whereBetween(query, where)
 		case "Column":
 			w = where.Boolean + " " + g.whereColumn(query, where)
+
 		}
 		sql = append(sql, w)
 	}
@@ -216,6 +227,37 @@ func (g *MySqlGrammar) concatenateWhereClauses(query *query.Query, sql []string)
 func (g *MySqlGrammar) whereBasic(query *query.Query, where *query.Where) string {
 	// value = where.Value
 	return g.Wrap(where.Column, false) + " " + where.Operator + " " + "?"
+}
+
+func (g *MySqlGrammar) whereIn(query *query.Query, where *query.Where) string {
+	if len(where.Values) > 0 {
+		return g.Wrap(where.Column, false) + " IN (" + g.Parameterize(where.Values) + ")"
+	}
+	return "0 = 1"
+}
+
+func (g *MySqlGrammar) whereNotIn(query *query.Query, where *query.Where) string {
+	if len(where.Values) > 0 {
+		return g.Wrap(where.Column, false) + " NOT IN (" + g.Parameterize(where.Values) + ")"
+	}
+	return "1 = 1"
+}
+
+func (g *MySqlGrammar) whereNull(query *query.Query, where *query.Where) string {
+	return g.Wrap(where.Column, false) + " IS NULL"
+}
+
+func (g *MySqlGrammar) whereNotNull(query *query.Query, where *query.Where) string {
+	return g.Wrap(where.Column, false) + " IS NOT NULL"
+}
+
+func (g *MySqlGrammar) whereBetween(query *query.Query, where *query.Where) string {
+	between := "between"
+	if where.Not {
+		between = "not between"
+	}
+
+	return g.Wrap(where.Column, false) + " " + between + " ? and ?"
 }
 
 func (g *MySqlGrammar) whereColumn(query *query.Query, where *query.Where) string {
@@ -278,7 +320,7 @@ func (g *MySqlGrammar) compileOffset(query *query.Query, offset uint64) string {
 func (g *MySqlGrammar) CompileInsert(query *query.Query, values []map[string]interface{}) (string, []interface{}) {
 	table := g.WrapTable(query.From)
 	var columns []string
-	var parameters [] string
+	var parameters []string
 	var bindings []interface{}
 
 	if len(values) > 0 {

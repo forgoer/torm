@@ -135,7 +135,7 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) error {
 	var cols []string
 
 	if len(columns) == 0 {
-		cols = [] string{"*"}
+		cols = []string{"*"}
 	} else {
 		if _, ok := columns[0].([]string); ok {
 			cols = columns[0].([]string)
@@ -144,7 +144,7 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) error {
 		}
 	}
 	if len(cols) == 0 {
-		cols = [] string{"*"}
+		cols = []string{"*"}
 	}
 
 	original := b.Query.Columns
@@ -158,6 +158,10 @@ func (b *Builder) Get(dest interface{}, columns ...interface{}) error {
 	b.Query.Columns = original
 
 	return err
+}
+
+func (b *Builder) Scan(dest ...interface{}) error {
+	return b.runScan(dest...)
 }
 
 // Where Add a basic where clause to the query.
@@ -226,7 +230,7 @@ func (b *Builder) WhereColumn(first string, args ...interface{}) *Builder {
 		value    string
 		boolean  string
 	)
-
+	boolean = "AND"
 	count := len(args)
 
 	if count == 1 {
@@ -249,8 +253,6 @@ func (b *Builder) WhereColumn(first string, args ...interface{}) *Builder {
 		Boolean:  boolean,
 	}
 	b.Query.Wheres = append(b.Query.Wheres, where)
-
-	b.AddBinding(value, "where")
 
 	return b
 }
@@ -461,7 +463,7 @@ func (b *Builder) WhereBetween(column string, values []interface{}, args ...inte
 	b.Query.Wheres = append(
 		b.Query.Wheres,
 		&query.Where{
-			Type:    "between",
+			Type:    "Between",
 			Column:  column,
 			Boolean: boolean,
 			Not:     not,
@@ -642,57 +644,47 @@ func (b *Builder) Offset(value uint64) *Builder {
 }
 
 // Count Retrieve the "count" result of the query.
-func (b *Builder) Count(columns ...string) (int64, error) {
-	result, err := b.Aggregate("COUNT", columns)
-
-	if count, ok := result.(int64); ok {
-		return count, nil
-	}
-
-	return 0, err
+func (b *Builder) Count(dest ...interface{}) error {
+	return b.Aggregate("COUNT", []string{"*"}, dest...)
 }
 
 // Min Retrieve the minimum value of a given column.
-func (b *Builder) Min(columns string) (interface{}, error) {
-	return b.Aggregate("MIN", [] string{columns})
+func (b *Builder) Min(columns string, dest ...interface{}) error {
+	return b.Aggregate("MIN", []string{columns}, dest...)
 }
 
 // Max Retrieve the maximum value of a given column.
-func (b *Builder) Max(columns string) (interface{}, error) {
-	return b.Aggregate("MAX", [] string{columns})
+func (b *Builder) Max(columns string, dest ...interface{}) error {
+	return b.Aggregate("MAX", []string{columns}, dest...)
 }
 
 // Sum Retrieve the sum of the values of a given column.
-func (b *Builder) Sum(columns string) (interface{}, error) {
-	return b.Aggregate("SUM", [] string{columns})
+func (b *Builder) Sum(columns string, dest ...interface{}) error {
+	return b.Aggregate("SUM", []string{columns}, dest...)
 }
 
 // Avg Retrieve the average of the values of a given column.
-func (b *Builder) Avg(columns string) (interface{}, error) {
-	return b.Aggregate("AVG", [] string{columns})
+func (b *Builder) Avg(columns string, dest ...interface{}) error {
+	return b.Aggregate("AVG", []string{columns}, dest...)
 }
 
 // Aggregate Execute an aggregate function on the database.
-func (b *Builder) Aggregate(function string, columns ...interface{}) (interface{}, error) {
-	var cols []string
+func (b *Builder) Aggregate(function string, columns []string, dest ...interface{}) error {
+	cols := []string{"*"}
 
-	if len(columns) == 0 {
-		cols = [] string{"*"}
-	} else {
-		if _, ok := columns[0].([]string); ok {
-			cols = columns[0].([]string)
-		} else {
-			return nil, errors.New("Invalid parameters")
-		}
+	if len(columns) > 0 {
+		cols = columns
 	}
-	if len(cols) == 0 {
-		cols = [] string{"*"}
+
+	nb := b.CloneWithout("columns").CloneWithoutBindings("select").setAggregate(function, cols)
+
+	original := nb.Query.Columns
+
+	if original == nil {
+		nb.Query.Columns = cols
 	}
-	// results, err := b.CloneWithout("columns").CloneWithoutBindings("select").setAggregate(function, cols).Get(cols)
-	// if len(results) > 0 {
-	// 	return results[0]["aggregate"], nil
-	// }
-	return nil, nil
+
+	return nb.Scan(dest...)
 }
 
 func (b *Builder) ToSql() string {
@@ -765,9 +757,17 @@ func (b *Builder) GetGrammar() grammar.Grammar {
 
 func (b *Builder) runSelect(dest interface{}) error {
 	return b.Connection.Select(
-		dest,
 		b.ToSql(),
 		b.GetBindings(),
+		dest,
+	)
+}
+
+func (b *Builder) runScan(dest ...interface{}) error {
+	return b.Connection.Scan(
+		b.ToSql(),
+		b.GetBindings(),
+		dest...,
 	)
 }
 
@@ -804,8 +804,8 @@ func (b *Builder) Update(value map[string]interface{}) (int64, error) {
 
 // Delete a record from the database.
 func (b *Builder) Delete(args ...interface{}) (int64, error) {
-	if len(args) > 0{
-		b.Where(b.Query.From + ".id", args[0])
+	if len(args) > 0 {
+		b.Where(b.Query.From+".id", args[0])
 	}
 
 	return b.Connection.Delete(

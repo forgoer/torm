@@ -1,7 +1,8 @@
 package utils
 
 import "strings"
-var(
+
+var (
 	// The cache of snake-cased words.
 	snakeCache = make(map[string]string)
 
@@ -22,7 +23,7 @@ func SnakeCase(s string) string {
 		if i > 0 && d >= 'A' && d <= 'Z' && !flag {
 			data = append(data, '_')
 			flag = true
-		}else {
+		} else {
 			flag = false
 		}
 		data = append(data, d)

@@ -54,12 +54,12 @@ func (c *Connection) Query() *Builder {
 }
 
 // SelectOne Run a select statement and return a single result.
-func (c *Connection) SelectOne(dest interface{}, query string, bindings []interface{}) error {
-	return c.Select(dest, query, bindings)
+func (c *Connection) SelectOne(query string, bindings []interface{}, dest interface{}) error {
+	return c.Select(query, bindings, dest)
 }
 
 // Select Run a select statement against the database.
-func (c *Connection) Select(dest interface{}, query string, bindings []interface{}) error {
+func (c *Connection) Select(query string, bindings []interface{}, dest interface{}) error {
 
 	log.Println(query)
 
@@ -133,6 +133,29 @@ func (c *Connection) Select(dest interface{}, query string, bindings []interface
 		}
 	}
 	return nil
+}
+
+func (c *Connection) Scan(query string, bindings []interface{}, dest ...interface{}) error {
+	log.Println(query)
+
+	var err error
+
+	stmt, err := c.DB.Prepare(query)
+
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(bindings...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	rows.Next()
+
+	return rows.Scan(dest...)
 }
 
 // Insert Run an insert statement against the database.

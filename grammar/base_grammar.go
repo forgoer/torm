@@ -5,6 +5,17 @@ import "sort"
 type BaseGrammar struct {
 }
 
+func (g *BaseGrammar) Parameterize(values []interface{}) string {
+	res := ""
+	for range values {
+		if len(res) > 0 {
+			res = res + ", "
+		}
+		res = res + "?"
+	}
+	return res
+}
+
 // Parameter Get the appropriate query parameter place-holder for a value.
 func (g *BaseGrammar) Parameter(value interface{}) interface{} {
 	if g.IsExpression(value) {
