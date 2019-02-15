@@ -15,7 +15,7 @@ var DB *Connection
 func init() {
 	config := Config{
 		Driver: "mysql",
-		Dsn:    "root:@tcp(127.0.0.1:3306)/test?charset=utf8&parseTime=true",
+		Dsn:    "root:@tcp(127.0.0.1:3306)/torm_test?charset=utf8&parseTime=true",
 	}
 	conn, err := Open(config)
 	if err != nil {
