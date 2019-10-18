@@ -25,4 +25,11 @@ func TestSnakeCase(t *testing.T) {
 	if b != expected {
 		t.Errorf("Expected the `SnakeCase` of %s to be %s but instead got %s !", a, expected, b)
 	}
+
+	a = "ID"
+	b = SnakeCase(a)
+	expected = "id"
+	if b != expected {
+		t.Errorf("Expected the `SnakeCase` of %s to be %s but instead got %s !", a, expected, b)
+	}
 }

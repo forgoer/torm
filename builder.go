@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/thinkoner/torm/grammar"
 	"github.com/thinkoner/torm/query"
 )

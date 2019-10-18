@@ -20,8 +20,10 @@ func SnakeCase(s string) string {
 	num := len(s)
 	for i := 0; i < num; i++ {
 		d := s[i]
-		if i > 0 && d >= 'A' && d <= 'Z' && !flag {
-			data = append(data, '_')
+		if d >= 'A' && d <= 'Z' && !flag {
+			if i > 0 {
+				data = append(data, '_')
+			}
 			flag = true
 		} else {
 			flag = false
@@ -29,6 +31,7 @@ func SnakeCase(s string) string {
 		data = append(data, d)
 	}
 	v := strings.ToLower(string(data[:]))
+
 	return v
 }
 

@@ -1,6 +1,9 @@
 package torm
 
 import (
+	"database/sql"
+	"database/sql/driver"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -11,51 +14,104 @@ import (
 type Field struct {
 	Value       reflect.Value
 	StructField reflect.StructField
-	params      map[string]string
+	Attrs       map[string]string
+	Primary     bool
+	Name        string
+	Ignored     bool
+	IsBlank     bool
 }
 
-// IsColumn Whether the specified column is configured
-func (f *Field) IsColumn(column string) bool {
-	c, ok := f.Column()
-	if !ok {
-		return false
-	}
-	return c == column
-}
+// GetParams Get the attr of tag
+func (f *Field) GetAttr(key string) (string, bool) {
+	key = strings.ToUpper(key)
+	val, ok := f.Attrs[key]
 
-// Column Get the column name
-func (f *Field) Column() (string, bool) {
-	column, ok := f.GetParams("column")
-	if !ok {
-		return utils.SnakeCase(f.StructField.Name), true
-	}
-
-	if len(column) > 0 && column != "-" {
-		return column, true
-	}
-
-	return "", false
-}
-
-// GetParams Get the params of tag
-func (f *Field) GetParams(key string) (string, bool) {
-	if f.params == nil {
-		f.parseParams()
-	}
-	val, ok := f.params[key]
 	return val, ok
 }
 
-func (f *Field) parseParams() {
-	f.params = make(map[string]string)
-	tagStr := f.StructField.Tag.Get("torm")
-	for _, kv := range strings.Split(tagStr, ";") {
-		v := strings.Split(kv, ":")
-		k := strings.TrimSpace(strings.ToLower(v[0]))
-		if len(v) >= 2 {
-			f.params[k] = strings.Join(v[1:], ":")
+// Set set a value to the field
+func (f *Field) SetValue(value interface{}) (err error) {
+
+	//if !f.Value.CanAddr() {
+	//
+	//}
+
+	reflectValue, ok := value.(reflect.Value)
+	if !ok {
+		reflectValue = reflect.ValueOf(value)
+	}
+
+	fieldValue := f.Value
+	if reflectValue.IsValid() {
+		if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
+			fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
 		} else {
-			f.params[k] = ""
+			if fieldValue.Kind() == reflect.Ptr {
+				if fieldValue.IsNil() {
+					fieldValue.Set(reflect.New(f.StructField.Type.Elem()))
+				}
+				fieldValue = fieldValue.Elem()
+			}
+
+			if reflectValue.Type().ConvertibleTo(fieldValue.Type()) {
+				fieldValue.Set(reflectValue.Convert(fieldValue.Type()))
+			} else if scanner, ok := fieldValue.Addr().Interface().(sql.Scanner); ok {
+				v := reflectValue.Interface()
+				if valuer, ok := v.(driver.Valuer); ok {
+					if v, err = valuer.Value(); err == nil {
+						err = scanner.Scan(v)
+					}
+				} else {
+					err = scanner.Scan(v)
+				}
+			} else {
+				err = fmt.Errorf("could not convert argument of field  from %s to %s", reflectValue.Type(), fieldValue.Type())
+			}
+		}
+	} else {
+		f.Value.Set(reflect.Zero(f.Value.Type()))
+	}
+
+	f.IsBlank = utils.IsBlank(f.Value)
+
+	return err
+}
+
+func (f *Field) initialize() {
+	tag := f.StructField.Tag.Get("torm")
+
+	for _, kv := range strings.Split(tag, ";") {
+		v := strings.Split(kv, ":")
+		k := strings.TrimSpace(strings.ToUpper(v[0]))
+		if len(v) >= 2 {
+			f.Attrs[k] = strings.Join(v[1:], ":")
+		} else {
+			f.Attrs[k] = ""
+		}
+		switch k {
+		case "-":
+			f.Ignored = true
+		case "PRIMARY_KEY":
+			f.Primary = true
+		case "COLUMN":
+			f.Name = f.Attrs[k]
 		}
 	}
+
+	if f.Name == "" || f.Name == "-" {
+		f.Name = utils.SnakeCase(f.StructField.Name)
+	}
+
+	f.IsBlank = utils.IsBlank(f.Value)
+}
+
+func NewField(value reflect.Value, structField reflect.StructField) *Field {
+	field := Field{
+		Value:       value,
+		StructField: structField,
+		Attrs:       map[string]string{},
+	}
+	field.initialize()
+
+	return &field
 }
